@@ -1,0 +1,83 @@
+Metadata-Version: 2.1
+Name: ez-commit
+Version: 0.1.0
+Summary: A tool to generate commit messages from git diffs using OpenAI
+Home-page: https://github.com/yourusername/ez-commit
+Author: Cline
+Author-email: cline@example.com
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+Requires-Dist: openai>=1.0.0
+Requires-Dist: gitpython>=3.1.0
+Requires-Dist: click>=8.0.0
+Requires-Dist: pyyaml>=6.0.0
+
+# ez-commit
+
+A Python tool that generates commit messages from git diffs using OpenAI's API.
+
+## Installation
+
+```bash
+pip install ez-commit
+```
+
+## Configuration
+
+Before using ez-commit, you need to set up your OpenAI API key and customize the system prompt if desired. The configuration file will be automatically created at first run in your user config directory.
+
+```yaml
+# Default configuration
+openai:
+  api_key: "your-api-key-here"
+  model: "gpt-4"
+system_prompt: |
+  You are a helpful assistant that generates clear and concise git commit messages.
+  Follow these guidelines:
+  - Use the imperative mood ("Add feature" not "Added feature")
+  - Keep the first line under 50 characters
+  - Provide more detailed explanation in subsequent paragraphs if necessary
+  - Reference relevant issue numbers if applicable
+```
+
+## Usage
+
+Simply run `ez-commit` in your git repository:
+
+```bash
+ez-commit
+```
+
+This will:
+1. Get the current git diff
+2. Send it to OpenAI's API with your configured system prompt
+3. Generate an appropriate commit message
+4. Display the suggested commit message
+
+### Options
+
+```bash
+ez-commit --help  # Show all available options
+ez-commit --config  # Open the configuration file in your default editor
+ez-commit --preview  # Show the commit message without committing
+```
+
+## Examples
+
+```bash
+# Generate a commit message and commit changes
+ez-commit
+
+# Preview the generated commit message without committing
+ez-commit --preview
+
+# Edit configuration
+ez-commit --config
+```
+
+## License
+
+MIT License

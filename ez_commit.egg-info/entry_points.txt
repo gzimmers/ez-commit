@@ -1,0 +1,2 @@
+[console_scripts]
+ez-commit = ez_commit.cli:main
