@@ -19,9 +19,9 @@ Follow these guidelines:
 DEFAULT_CONFIG = {
     "openai": {
         "api_key": "",
-        "model": "gpt-4",
+        "model": "gpt-4o",
         "temperature": 0.7,
-        "max_tokens": 500
+        "max_tokens": 10000
     },
     "system_prompt": DEFAULT_SYSTEM_PROMPT
 }

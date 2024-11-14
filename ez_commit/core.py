@@ -28,14 +28,19 @@ def get_git_diff() -> str:
     except git.GitCommandError as e:
         raise ValueError(f"Git error: {str(e)}")
 
-def create_commit_prompt(diff: str, system_prompt: str) -> list:
+def create_commit_prompt(diff: str, system_prompt: str, additional_messages: list = None) -> list:
     """Create the messages list for the OpenAI API call."""
-    return [
+    messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": f"Generate a commit message for the following git diff:\n\n{diff}"}
     ]
+    
+    if additional_messages:
+        messages.extend(additional_messages)
+    
+    return messages
 
-def generate_commit_message(diff: str = None) -> str:
+def generate_commit_message(diff: str = None, additional_messages: list = None) -> str:
     """Generate a commit message using OpenAI API."""
     if diff is None:
         diff = get_git_diff()
@@ -43,7 +48,7 @@ def generate_commit_message(diff: str = None) -> str:
     cfg = config.validate_config()
     client = OpenAI(api_key=config.get_openai_api_key())
     
-    messages = create_commit_prompt(diff, cfg["system_prompt"])
+    messages = create_commit_prompt(diff, cfg["system_prompt"], additional_messages)
     
     try:
         response = client.chat.completions.create(
