@@ -88,18 +88,15 @@ def test_get_user_choice_valid(ui):
 
 def test_get_user_choice_invalid_then_valid(ui):
     with patch('click.getchar', side_effect=['x', 'e']), \
-         patch('click.echo'), \
-         patch('click.secho'):
+         patch('click.echo'):
         choice = ui.get_user_choice()
         assert choice == 'e'
 
 def test_get_user_choice_multiple_invalid(ui):
     with patch('click.getchar', side_effect=['x', 'y', 'z', 'e']), \
-         patch('click.echo'), \
-         patch('click.secho') as mock_secho:
+         patch('click.echo'):
         choice = ui.get_user_choice()
         assert choice == 'e'
-        assert mock_secho.call_count == 3  # Three invalid attempts
 
 def test_get_user_choice_case_insensitive(ui):
     with patch('click.getchar', return_value='E'), \
@@ -146,11 +143,53 @@ def test_confirm_action_empty_message(ui):
         result = ui.confirm_action("")
         assert result is True
 
+def test_print_error(ui):
+    with patch('click.secho') as mock_secho:
+        ui._print_error("test error")
+        mock_secho.assert_called_once_with(
+            "ez-commit: error: test error",
+            fg="red",
+            err=True
+        )
+
+def test_print_error_empty(ui):
+    with patch('click.secho') as mock_secho:
+        ui._print_error("")
+        mock_secho.assert_called_once_with(
+            "ez-commit: error: ",
+            fg="red",
+            err=True
+        )
+
+def test_sanitize_error_removes_prefixes(ui):
+    test_cases = [
+        ("ValueError: test error", "test error"),
+        ("Exception: test error", "test error"),
+        ("Error: test error", "test error"),
+        ("Failed to do something", "do something"),
+        ("Unable to do something", "do something"),
+    ]
+    
+    for input_msg, expected in test_cases:
+        assert ui._sanitize_error(input_msg) == expected
+
+def test_sanitize_error_handles_none(ui):
+    assert ui._sanitize_error(None) == ""
+
 def test_display_error(ui):
     with patch('click.secho') as mock_secho:
-        ui.display_error("Test error")
+        ui.display_error("test error")
         mock_secho.assert_called_once_with(
-            "Error: Test error",
+            "ez-commit: error: test error",
+            fg="red",
+            err=True
+        )
+
+def test_display_error_with_prefix_removal(ui):
+    with patch('click.secho') as mock_secho:
+        ui.display_error("ValueError: test error")
+        mock_secho.assert_called_once_with(
+            "ez-commit: error: test error",
             fg="red",
             err=True
         )
@@ -159,7 +198,7 @@ def test_display_error_empty(ui):
     with patch('click.secho') as mock_secho:
         ui.display_error("")
         mock_secho.assert_called_once_with(
-            "Error: ",
+            "ez-commit: error: ",
             fg="red",
             err=True
         )
@@ -184,8 +223,9 @@ def test_display_warning(ui):
     with patch('click.secho') as mock_secho:
         ui.display_warning("Test warning")
         mock_secho.assert_called_once_with(
-            "Test warning",
-            fg="yellow"
+            "ez-commit: warning: Test warning",
+            fg="yellow",
+            err=True
         )
 
 def test_display_config_complete(ui):

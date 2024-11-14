@@ -2,6 +2,7 @@
 UI components for ez-commit
 """
 
+import sys
 import click
 
 class TerminalUI:
@@ -49,7 +50,7 @@ class TerminalUI:
                 click.echo(choice)  # Echo the choice since getchar doesn't
                 return choice
             self.clear_lines(1)
-            click.secho("Invalid choice. Please select (e)dit, (c)ancel, (i)nteractive, or (s)ave", fg="red")
+            self._print_error("Invalid choice. Please select (e)dit, (c)ancel, (i)nteractive, or (s)ave")
             self.clear_lines(1)
 
     def get_user_feedback(self, current_message):
@@ -64,23 +65,49 @@ class TerminalUI:
         """Ask user to confirm an action."""
         return click.confirm(f"\n{message}")
 
-    def display_error(self, message):
-        """Display an error message."""
-        click.secho(f"Error: {message}", fg="red", err=True)
+    def _print_error(self, message: str):
+        """Print error message to stderr with proper formatting."""
+        program_name = "ez-commit"
+        click.secho(f"{program_name}: error: {message}", fg="red", err=True)
 
-    def display_success(self, message):
+    def display_error(self, message: str):
+        """Display an error message to stderr."""
+        self._print_error(self._sanitize_error(message))
+
+    def _sanitize_error(self, message: str) -> str:
+        """Remove implementation details and format error for user display."""
+        # Remove common Python error prefixes
+        message = str(message)
+        if ": " in message:
+            message = message.split(": ")[-1]
+        
+        # Remove implementation details
+        replacements = {
+            "ValueError: ": "",
+            "Exception: ": "",
+            "Error: ": "",
+            "Failed to ": "",
+            "Unable to ": "",
+        }
+        for old, new in replacements.items():
+            message = message.replace(old, new)
+        
+        return message.strip()
+
+    def display_success(self, message: str):
         """Display a success message."""
         click.secho(message, fg="green")
 
-    def display_info(self, message):
+    def display_info(self, message: str):
         """Display an info message."""
         click.secho(message, fg="blue")
 
-    def display_warning(self, message):
-        """Display a warning message."""
-        click.secho(message, fg="yellow")
+    def display_warning(self, message: str):
+        """Display a warning message to stderr."""
+        program_name = "ez-commit"
+        click.secho(f"{program_name}: warning: {message}", fg="yellow", err=True)
 
-    def display_config(self, config):
+    def display_config(self, config: dict):
         """Display configuration information."""
         click.secho("\nCurrent Configuration:", fg="blue")
         click.echo("-" * 50)

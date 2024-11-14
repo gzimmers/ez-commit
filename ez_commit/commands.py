@@ -6,6 +6,7 @@ import os
 import subprocess
 import tempfile
 from typing import Optional, Tuple
+from .exceptions import GitError, APIError, ConfigError, EditorError
 
 class EditorHandler:
     """Handles editor-related operations."""
@@ -21,10 +22,11 @@ class EditorHandler:
             else:
                 subprocess.run([self.editor, filename], check=True)
         except subprocess.SubprocessError as e:
-            raise ValueError(f"Failed to open editor: {str(e)}")
+            raise EditorError(f"could not open editor: {str(e)}")
 
     def edit_text(self, initial_text: str = "") -> str:
         """Edit text in a temporary file."""
+        filename = None
         try:
             # Use UTF-8 encoding explicitly
             with tempfile.NamedTemporaryFile(mode='w+', suffix='.txt', delete=False, encoding='utf-8') as tf:
@@ -38,14 +40,13 @@ class EditorHandler:
             with open(filename, 'r', encoding='utf-8') as f:
                 content = f.read()
             
-            os.unlink(filename)
             return content.strip()
         except (IOError, OSError) as e:
-            raise ValueError(f"File operation error: {str(e)}")
+            raise EditorError(f"file operation failed: {str(e)}")
         finally:
             # Ensure temp file is cleaned up even if an error occurs
             try:
-                if 'filename' in locals():
+                if filename and os.path.exists(filename):
                     os.unlink(filename)
             except:
                 pass
@@ -82,11 +83,15 @@ class CommitHandler:
             self._message = self.core.generate_commit_message(self._diff)
             
             if not self.validate_commit_message(self._message):
-                return False, "Generated commit message is invalid"
+                return False, "invalid commit message format"
                 
             return True, None
-        except ValueError as e:
-            return False, str(e)
+        except Exception as e:
+            if "OpenAI API" in str(e):
+                raise APIError(str(e))
+            if "git" in str(e).lower():
+                raise GitError(str(e))
+            raise GitError("could not generate commit message")
 
     def handle_edit(self) -> None:
         """Handle edit action."""
@@ -94,7 +99,7 @@ class CommitHandler:
         if edited_message and self.validate_commit_message(edited_message):
             self._message = edited_message
         else:
-            raise ValueError("Invalid commit message format. First line must be non-empty and under 50 characters.")
+            raise GitError("first line must be non-empty and under 50 characters")
 
     def handle_interactive(self) -> Tuple[bool, Optional[str]]:
         """Handle interactive feedback mode."""
@@ -111,23 +116,25 @@ class CommitHandler:
             new_message = self.core.generate_commit_message(self._diff, additional_messages)
             
             if not self.validate_commit_message(new_message):
-                return False, "Generated commit message is invalid"
+                return False, "invalid commit message format"
                 
             self._message = new_message
             return True, None
-        except ValueError as e:
-            return False, str(e)
+        except Exception as e:
+            if "OpenAI API" in str(e):
+                raise APIError(str(e))
+            raise APIError("could not generate new commit message")
 
     def handle_save(self) -> Tuple[bool, Optional[str]]:
         """Handle save action."""
         try:
             if not self.validate_commit_message(self._message):
-                return False, "Invalid commit message format"
+                return False, "invalid commit message format"
                 
             self.core.commit_changes(self._message)
             return True, None
-        except ValueError as e:
-            return False, str(e)
+        except Exception as e:
+            raise GitError(f"could not commit changes: {str(e)}")
 
     @property
     def current_message(self) -> str:
@@ -152,7 +159,7 @@ class ConfigHandler:
             self.config.load_config()
             return True, None
         except Exception as e:
-            return False, str(e)
+            raise ConfigError(f"could not edit configuration: {str(e)}")
 
     def reset_config(self, ui) -> Tuple[bool, Optional[str]]:
         """Reset configuration to default values."""
@@ -175,7 +182,7 @@ class ConfigHandler:
                 ui.display_info("Reset cancelled.")
                 return True, None
         except Exception as e:
-            return False, str(e)
+            raise ConfigError(f"could not reset configuration: {str(e)}")
 
     def set_api_key(self, key: str) -> Tuple[bool, Optional[str]]:
         """Set the OpenAI API key."""
@@ -189,12 +196,12 @@ class ConfigHandler:
             self.config.save_config(cfg)
             return True, None
         except Exception as e:
-            return False, str(e)
+            raise ConfigError(f"could not save API key: {str(e)}")
 
     def set_model(self, model: str) -> Tuple[bool, Optional[str]]:
         """Set the OpenAI model."""
         if not model or not model.strip():
-            return False, "Model name cannot be empty"
+            return False, "model name cannot be empty"
             
         try:
             self.config.ensure_config_exists()
@@ -203,7 +210,7 @@ class ConfigHandler:
             self.config.save_config(cfg)
             return True, None
         except Exception as e:
-            return False, str(e)
+            raise ConfigError(f"could not save model: {str(e)}")
 
     def set_temperature(self, temperature: float) -> Tuple[bool, Optional[str]]:
         """Set the temperature for response generation."""
@@ -213,11 +220,11 @@ class ConfigHandler:
             
             # Validate range and format
             if not (0 <= temp <= 1):
-                return False, "Temperature must be between 0.0 and 1.0"
+                return False, "temperature must be between 0.0 and 1.0"
                 
             # Check for scientific notation
             if 'e' in str(temp).lower():
-                return False, "Temperature must be a decimal number between 0.0 and 1.0"
+                return False, "temperature must be a decimal number between 0.0 and 1.0"
             
             self.config.ensure_config_exists()
             cfg = self.config.load_config()
@@ -225,9 +232,9 @@ class ConfigHandler:
             self.config.save_config(cfg)
             return True, None
         except ValueError:
-            return False, "Temperature must be a valid number between 0.0 and 1.0"
+            return False, "temperature must be a valid number between 0.0 and 1.0"
         except Exception as e:
-            return False, str(e)
+            raise ConfigError(f"could not save temperature: {str(e)}")
 
     def edit_prompt(self) -> Tuple[bool, Optional[str]]:
         """Edit the system prompt."""
@@ -241,9 +248,9 @@ class ConfigHandler:
                 cfg["system_prompt"] = new_prompt
                 self.config.save_config(cfg)
                 return True, None
-            return False, "System prompt cannot be empty"
+            return False, "system prompt cannot be empty"
         except Exception as e:
-            return False, str(e)
+            raise ConfigError(f"could not save system prompt: {str(e)}")
 
     def show_config(self) -> Tuple[dict, Optional[str]]:
         """Show current configuration."""
@@ -251,4 +258,4 @@ class ConfigHandler:
             self.config.ensure_config_exists()
             return self.config.load_config(), None
         except Exception as e:
-            return {}, str(e)
+            raise ConfigError(f"could not load configuration: {str(e)}")
