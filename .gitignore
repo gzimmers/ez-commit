@@ -1,1 +1,4 @@
 ez_commit.egg-info/
+venv/
+**/__pycache__/
+.pytest_cache/
